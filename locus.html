@@ -3,23 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>幾何軌跡探索角落</title>
+  <title>互動幾何軌跡探索器</title>
   <style>
     :root {
-      --bg: #1a1a24;
-      --card-bg: #242433;
+      --bg: #121218;
+      --card-bg: #1e1e2a;
       --primary: #7c4dff;
       --accent: #00e676;
+      --warn: #ff5252;
       --text: #e0e0e0;
       --subtext: #9e9e9e;
     }
-    * { box-sizing: border-box; touch-action: manipulation; }
+    * { box-sizing: border-box; touch-action: none; user-select: none; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       margin: 0;
-      padding: 12px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -31,422 +32,554 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     .back-btn {
       text-decoration: none;
       color: var(--primary);
       font-weight: bold;
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       background: rgba(124, 77, 255, 0.15);
-      padding: 6px 12px;
-      border-radius: 8px;
+      padding: 5px 10px;
+      border-radius: 6px;
     }
-    .title { font-size: 1.05rem; font-weight: bold; color: #fff; }
+    .title { font-size: 1rem; font-weight: bold; color: #fff; }
 
     .canvas-card {
       width: 100%;
       max-width: 500px;
-      background: #12121a;
-      border-radius: 16px;
+      background: #0a0a0f;
+      border-radius: 14px;
       overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
       position: relative;
-      border: 1px solid rgba(255,255,255,0.08);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
     canvas {
       width: 100%;
-      height: 340px;
+      height: 350px;
       display: block;
       cursor: crosshair;
     }
-    .info-overlay {
+    .status-overlay {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      right: 10px;
-      background: rgba(0,0,0,0.6);
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.65);
       backdrop-filter: blur(4px);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.8rem;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
       color: #b0bec5;
       pointer-events: none;
-      line-height: 1.4;
+      line-height: 1.3;
     }
+    .fit-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 0.75rem;
+      margin-top: 2px;
+    }
+    .fit-yes { background: rgba(0, 230, 118, 0.2); color: var(--accent); }
+    .fit-no { background: rgba(255, 82, 82, 0.2); color: var(--warn); }
 
     .controls-card {
       width: 100%;
       max-width: 500px;
       background: var(--card-bg);
-      border-radius: 16px;
-      padding: 16px;
-      margin-top: 12px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      border-radius: 14px;
+      padding: 12px;
+      margin-top: 10px;
     }
-    .form-group {
-      margin-bottom: 12px;
-    }
-    label {
+    .mode-selector {
       display: flex;
-      justify-content: space-between;
-      font-size: 0.85rem;
-      color: var(--subtext);
-      margin-bottom: 4px;
+      gap: 6px;
+      margin-bottom: 10px;
     }
+    .mode-btn {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05);
+      color: var(--subtext);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .mode-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .form-group { margin-bottom: 8px; }
+    label { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--subtext); margin-bottom: 3px; }
     select, input[type="range"] {
       width: 100%;
-      background: #181824;
+      background: #12121a;
       color: var(--text);
       border: 1px solid rgba(255,255,255,0.1);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.9rem;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
       outline: none;
     }
-    input[type="range"] {
-      padding: 0;
-      height: 6px;
-      accent-color: var(--primary);
-    }
-    .btn-grid {
+    input[type="range"] { height: 4px; accent-color: var(--primary); }
+
+    .action-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
-      margin-top: 12px;
+      margin-top: 8px;
     }
-    button {
-      padding: 10px;
+    button.act-btn {
+      padding: 8px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       font-weight: bold;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       cursor: pointer;
       color: #fff;
-      transition: opacity 0.2s;
     }
-    button:active { opacity: 0.8; }
-    .btn-play { background: var(--primary); }
     .btn-clear { background: #ff5252; }
-    .btn-rand { background: #00b0ff; }
+    .btn-reset { background: #00b0ff; }
   </style>
 </head>
 <body>
 
   <div class="top-bar">
     <a href="index.html" class="back-btn">← 回到工具箱</a>
-    <span class="title">✨ 幾何軌跡探索角落</span>
+    <span class="title">✨ 互動幾何軌跡探索器</span>
   </div>
 
   <div class="canvas-card">
-    <canvas id="locusCanvas"></canvas>
-    <div class="info-overlay" id="infoText">載入中...</div>
+    <canvas id="canvas"></canvas>
+    <div class="status-overlay" id="statusBox">載入中...</div>
   </div>
 
   <div class="controls-card">
+    <!-- 模式切換 -->
+    <div class="mode-selector">
+      <button class="mode-btn active" id="btnExplore" onclick="setMode('explore')">🔍 探索模式 (用家拖動點 P)</button>
+      <button class="mode-btn" id="btnAnim" onclick="setMode('anim')">🎬 動畫模式 (自動軌跡)</button>
+    </div>
+
+    <!-- 幾何 Case 選擇 -->
     <div class="form-group">
-      <label for="modeSelect">軌跡模式：</label>
-      <select id="modeSelect">
-        <option value="spiro">🌀 萬花雙軸連桿軌跡 (Spirograph)</option>
-        <option value="apollonius">⭕ 阿波羅尼斯圓 (PA / PB = k)</option>
-        <option value="parabola">📐 拋物線焦點與準線 (Parabola)</option>
-        <option value="linkage">🤖 雙關節機械臂軌跡 (2-Bar Linkage)</option>
+      <label for="caseSelect">軌跡條件 Case：</label>
+      <select id="caseSelect" onchange="changeCase()">
+        <option value="1">Case 1: PA = PB (垂直平分線)</option>
+        <option value="2">Case 2: PA = k · PB (阿波羅尼斯圓)</option>
+        <option value="3">Case 3: 到無限直線 L 距離 = d (雙側平行線)</option>
+        <option value="4">Case 4: 到有限線段 AB 距離 = d (藥丸形/Capsule)</option>
+        <option value="5">Case 5: 到焦點 F 距離 = 到準線 L 距離 (拋物線)</option>
       </select>
     </div>
 
-    <div id="dynamicSliders"></div>
+    <!-- 動態參數滑塊 -->
+    <div id="sliderBox"></div>
 
-    <div class="btn-grid">
-      <button class="btn-play" id="playBtn">⏸ 暫停</button>
-      <button class="btn-clear" id="clearBtn">🧹 清空軌跡</button>
-      <button class="btn-rand" id="randBtn">🎲 隨機變數</button>
+    <div class="action-grid">
+      <button class="act-btn btn-clear" onclick="clearTraces()">🧹 清除探索痕跡</button>
+      <button class="act-btn btn-reset" onclick="resetPositions()">🔄 重置點的位置</button>
     </div>
   </div>
 
 <script>
-  const canvas = document.getElementById('locusCanvas');
+  const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
-  const infoText = document.getElementById('infoText');
-  const modeSelect = document.getElementById('modeSelect');
-  const dynamicSliders = document.getElementById('dynamicSliders');
-  const playBtn = document.getElementById('playBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  const randBtn = document.getElementById('randBtn');
+  const statusBox = document.getElementById('statusBox');
+  const sliderBox = document.getElementById('sliderBox');
 
-  let isPlaying = true;
+  let mode = 'explore'; // 'explore' or 'anim'
+  let currentCase = '1';
   let t = 0;
-  let trailPoints = [];
-  const maxTrail = 800;
 
-  // 拖曳狀態 (用於互動焦點)
-  let isDragging = false;
-  let dragTarget = null;
+  // 探索痕跡 (Dots) 與 動畫軌跡 (Points)
+  let userTraces = [];
+  let animTraces = [];
 
-  // 各模式參數
-  let state = {
-    // Spirograph
-    r1: 80, r2: 40, w1: 1, w2: 3,
-    // Apollonius
-    pA: { x: -60, y: 0 }, pB: { x: 60, y: 0 }, kRatio: 1.5,
-    // Parabola
-    focus: { x: 0, y: -50 }, directrixY: 50,
-    // Linkage
-    l1: 90, l2: 60, speed1: 0.02, speed2: 0.05
+  // 各點位置與參數 (以 Canvas 中心為原點的相對坐標)
+  let points = {
+    A: { x: -70, y: 0 },
+    B: { x: 70, y: 0 },
+    F: { x: 0, y: -40 }, // 拋物線焦點
+    L1: { x: -120, y: 50 }, // 直線/準線 端點1
+    L2: { x: 120, y: 50 },  // 直線/準線 端點2
+    P: { x: 0, y: -50 }   // 移動點 P
   };
 
-  // 適應 High DPI 螢幕
+  let params = {
+    k: 1.5,
+    d: 40
+  };
+
+  // 拖曳控制
+  let draggedPoint = null;
+  const HIT_RADIUS = 22; // 觸控判定範圍
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btnExplore').classList.toggle('active', mode === 'explore');
+    document.getElementById('btnAnim').classList.toggle('active', mode === 'anim');
+    clearTraces();
+  }
+
+  function changeCase() {
+    currentCase = document.getElementById('caseSelect').value;
+    renderSliders();
+    clearTraces();
+    resetPositions();
+  }
+
+  function clearTraces() {
+    userTraces = [];
+    animTraces = [];
+  }
+
+  function resetPositions() {
+    points.A = { x: -80, y: 0 };
+    points.B = { x: 80, y: 0 };
+    points.F = { x: 0, y: -50 };
+    points.L1 = { x: -120, y: 40 };
+    points.L2 = { x: 120, y: 40 };
+    points.P = { x: 10, y: -20 };
+  }
+
+  function renderSliders() {
+    let html = '';
+    if (currentCase === '2') {
+      html = `<div class="form-group"><label>比例常數 k (PA / PB): <span id="valK">${params.k}</span></label><input type="range" min="0.3" max="2.5" step="0.1" value="${params.k}" oninput="params.k=+this.value; valK.innerText=this.value; clearTraces();"></div>`;
+    } else if (currentCase === '3' || currentCase === '4') {
+      html = `<div class="form-group"><label>固定距離 d: <span id="valD">${params.d}</span> px</label><input type="range" min="15" max="80" value="${params.d}" oninput="params.d=+this.value; valD.innerText=this.value; clearTraces();"></div>`;
+    }
+    sliderBox.innerHTML = html;
+  }
+
+  // --- 幾何計算工具函式 ---
+  function dist(p1, p2) { return Math.hypot(p1.x - p2.x, p1.y - p2.y); }
+
+  // 點 P 到無限直線 (L1, L2) 的垂直距離
+  function distToLine(P, L1, L2) {
+    const A = L2.y - L1.y;
+    const B = L1.x - L2.x;
+    const C = L2.x * L1.y - L1.x * L2.y;
+    const len = Math.hypot(A, B);
+    return len === 0 ? dist(P, L1) : Math.abs(A * P.x + B * P.y + C) / len;
+  }
+
+  // 點 P 到有限線段 (A, B) 的最短距離
+  function distToSegment(P, A, B) {
+    const l2 = Math.pow(A.x - B.x, 2) + Math.pow(A.y - B.y, 2);
+    if (l2 === 0) return dist(P, A);
+    let t = ((P.x - A.x) * (B.x - A.x) + (P.y - A.y) * (B.y - A.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const proj = { x: A.x + t * (B.x - A.x), y: A.y + t * (B.y - A.y) };
+    return dist(P, proj);
+  }
+
+  // 判定 P 是否滿足目前 Case 的幾何條件
+  function checkCondition(P) {
+    let diff = 0;
+    let targetText = '';
+    const tolerance = 4.5; // 允許誤差像素
+
+    if (currentCase === '1') { // PA = PB
+      const dPA = dist(P, points.A);
+      const dPB = dist(P, points.B);
+      diff = Math.abs(dPA - dPB);
+      targetText = `PA = ${dPA.toFixed(1)}, PB = ${dPB.toFixed(1)}`;
+    } else if (currentCase === '2') { // PA = k * PB
+      const dPA = dist(P, points.A);
+      const dPB = dist(P, points.B);
+      diff = Math.abs(dPA - params.k * dPB);
+      targetText = `PA = ${dPA.toFixed(1)}, k·PB = ${(params.k * dPB).toFixed(1)}`;
+    } else if (currentCase === '3') { // 到無限直線 L 距離 = d
+      const dLine = distToLine(P, points.L1, points.L2);
+      diff = Math.abs(dLine - params.d);
+      targetText = `到直線距離 = ${dLine.toFixed(1)} (目標 d = ${params.d})`;
+    } else if (currentCase === '4') { // 到有限線段 AB 距離 = d
+      const dSeg = distToSegment(P, points.A, points.B);
+      diff = Math.abs(dSeg - params.d);
+      targetText = `到線段距離 = ${dSeg.toFixed(1)} (目標 d = ${params.d})`;
+    } else if (currentCase === '5') { // 到焦點 F 距離 = 到準線 L 距離
+      const dF = dist(P, points.F);
+      const dL = distToLine(P, points.L1, points.L2);
+      diff = Math.abs(dF - dL);
+      targetText = `PF = ${dF.toFixed(1)}, 到準線 = ${dL.toFixed(1)}`;
+    }
+
+    const isValid = diff <= tolerance;
+    return { isValid, diff, targetText };
+  }
+
+  // --- 主繪圖循環 ---
+  function draw() {
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const cx = w / 2;
+    const cy = h / 2;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 背景網格
+    ctx.strokeStyle = "rgba(255,255,255,0.03)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 25) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y = 0; y < h; y += 25) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // 1. 繪製幾何基準線/點
+    drawBaseGeometry();
+
+    // 2. 處理模式邏輯
+    if (mode === 'anim') {
+      updateAnimation();
+    } else {
+      // 探索模式：檢查 P 點是否符合條件
+      const cond = checkCondition(points.P);
+      if (cond.isValid) {
+        // 若符合條件且正在拖動，或剛抵達，紀錄痕跡點
+        const last = userTraces[userTraces.length - 1];
+        if (!last || dist(last, points.P) > 3) {
+          userTraces.push({ x: points.P.x, y: points.P.y });
+        }
+      }
+      
+      // 更新狀態提示文字
+      statusBox.innerHTML = `
+        <b>🔍 自由探索模式</b>：請手動拖動黃色點 P。<br>
+        狀態：${cond.targetText} 
+        <span class="fit-badge ${cond.isValid ? 'fit-yes' : 'fit-no'}">
+          ${cond.isValid ? '✨ 符合條件！已留下痕跡' : '❌ 未符合條件'}
+        </span>
+      `;
+    }
+
+    // 3. 繪製用家探索留下的痕跡點 (User Traces)
+    ctx.fillStyle = "#00e676";
+    for (let p of userTraces) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI*2); ctx.fill();
+    }
+
+    // 4. 繪製動畫模式軌跡 (Anim Traces)
+    if (mode === 'anim' && animTraces.length > 1) {
+      ctx.strokeStyle = "#7c4dff"; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(animTraces[0].x, animTraces[0].y);
+      for (let i = 1; i < animTraces.length; i++) ctx.lineTo(animTraces[i].x, animTraces[i].y);
+      ctx.stroke();
+    }
+
+    // 5. 繪製點 P 與輔助線
+    drawPointP();
+
+    ctx.restore();
+
+    t += 0.02;
+    requestAnimationFrame(draw);
+  }
+
+  // 繪製基準幾何體 (A, B, F, 輔助線等)
+  function drawBaseGeometry() {
+    if (currentCase === '1' || currentCase === '2') {
+      // 繪製 A, B 點與連線
+      ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.moveTo(points.A.x, points.A.y); ctx.lineTo(points.B.x, points.B.y); ctx.stroke();
+      drawControlPoint(points.A, "A", "#ff5252");
+      drawControlPoint(points.B, "B", "#00b0ff");
+    } else if (currentCase === '3') {
+      // 無限直線 L
+      ctx.strokeStyle = "#ffb74d"; ctx.lineWidth = 2;
+      const dx = points.L2.x - points.L1.x, dy = points.L2.y - points.L1.y;
+      ctx.beginPath();
+      ctx.moveTo(points.L1.x - dx*5, points.L1.y - dy*5);
+      ctx.lineTo(points.L2.x + dx*5, points.L2.y + dy*5);
+      ctx.stroke();
+      drawControlPoint(points.L1, "L1", "#ffb74d");
+      drawControlPoint(points.L2, "L2", "#ffb74d");
+    } else if (currentCase === '4') {
+      // 有限線段 AB
+      ctx.strokeStyle = "#ffb74d"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(points.A.x, points.A.y); ctx.lineTo(points.B.x, points.B.y); ctx.stroke();
+      drawControlPoint(points.A, "A", "#ffb74d");
+      drawControlPoint(points.B, "B", "#ffb74d");
+    } else if (currentCase === '5') {
+      // 焦點 F 與 準線 L
+      drawControlPoint(points.F, "焦點 F", "#ff5252");
+      ctx.strokeStyle = "#42a5f5"; ctx.lineWidth = 2;
+      const dx = points.L2.x - points.L1.x, dy = points.L2.y - points.L1.y;
+      ctx.beginPath();
+      ctx.moveTo(points.L1.x - dx*5, points.L1.y - dy*5);
+      ctx.lineTo(points.L2.x + dx*5, points.L2.y + dy*5);
+      ctx.stroke();
+      drawControlPoint(points.L1, "準線 L1", "#42a5f5");
+      drawControlPoint(points.L2, "準線 L2", "#42a5f5");
+    }
+  }
+
+  function drawPointP() {
+    const P = points.P;
+    const cond = checkCondition(P);
+
+    // 繪製 P 到各點/線的連線
+    ctx.strokeStyle = cond.isValid ? "rgba(0, 230, 118, 0.4)" : "rgba(255, 255, 255, 0.2)";
+    ctx.lineWidth = 1;
+
+    if (currentCase === '1' || currentCase === '2') {
+      ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(points.A.x, points.A.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(points.B.x, points.B.y); ctx.stroke();
+    } else if (currentCase === '5') {
+      ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(points.F.x, points.F.y); ctx.stroke();
+    }
+
+    // 繪製 P 本體
+    ctx.fillStyle = cond.isValid ? "#00e676" : "#ffeb3b";
+    ctx.beginPath(); ctx.arc(P.x, P.y, cond.isValid ? 7 : 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "12px sans-serif"; ctx.fillText("P", P.x + 8, P.y - 8);
+  }
+
+  function drawControlPoint(pt, label, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.font = "11px sans-serif"; ctx.fillText(label, pt.x - 10, pt.y - 9);
+  }
+
+  // --- 自動動畫計算 ---
+  function updateAnimation() {
+    statusBox.innerHTML = `<b>🎬 自動動畫展示模式</b>：系統正在為你展示完美的幾何軌跡...`;
+
+    if (currentCase === '1') { // 垂直平分線
+      const midX = (points.A.x + points.B.x)/2;
+      const midY = (points.A.y + points.B.y)/2;
+      const dx = points.B.x - points.A.x, dy = points.B.y - points.A.y;
+      const param = Math.sin(t) * 120;
+      points.P.x = midX - dy * (param/100);
+      points.P.y = midY + dx * (param/100);
+    } else if (currentCase === '2') { // 阿波羅尼斯圓
+      const k = params.k;
+      const k2 = k * k;
+      if (Math.abs(k - 1) < 0.05) {
+        points.P.x = (points.A.x + points.B.x)/2;
+        points.P.y = (points.A.y + points.B.y)/2 + Math.sin(t)*100;
+      } else {
+        const cx = (points.A.x - k2 * points.B.x) / (1 - k2);
+        const cy = (points.A.y - k2 * points.B.y) / (1 - k2);
+        const dAB = dist(points.A, points.B);
+        const r = (k * dAB) / Math.abs(1 - k2);
+        points.P.x = cx + r * Math.cos(t);
+        points.P.y = cy + r * Math.sin(t);
+      }
+    } else if (currentCase === '3') { // 雙側平行線
+      const dx = points.L2.x - points.L1.x, dy = points.L2.y - points.L1.y;
+      const len = Math.hypot(dx, dy);
+      const nx = -dy / len, ny = dx / len; // 法向量
+      const side = Math.sin(t*0.5) > 0 ? 1 : -1;
+      const pos = (t * 40) % 300 - 150;
+      points.P.x = points.L1.x + (dx/len)*pos + nx * params.d * side;
+      points.P.y = points.L1.y + (dy/len)*pos + ny * params.d * side;
+    } else if (currentCase === '4') { // 藥丸形/Capsule
+      const dx = points.B.x - points.A.x, dy = points.B.y - points.A.y;
+      const len = Math.hypot(dx, dy);
+      const nx = -dy / len, ny = dx / len;
+      const angleA = Math.atan2(dy, dx);
+      
+      const totalLen = len * 2 + 2 * Math.PI * params.d;
+      const curr = (t * 50) % totalLen;
+
+      if (curr < len) { // 上平行線
+        points.P.x = points.A.x + (dx/len)*curr + nx * params.d;
+        points.P.y = points.A.y + (dy/len)*curr + ny * params.d;
+      } else if (curr < len + Math.PI * params.d) { // B 端半圓
+        const arcT = (curr - len) / params.d - Math.PI/2;
+        points.P.x = points.B.x + params.d * Math.cos(angleA + arcT);
+        points.P.y = points.B.y + params.d * Math.sin(angleA + arcT);
+      } else if (curr < len * 2 + Math.PI * params.d) { // 下平行線
+        const backT = curr - (len + Math.PI * params.d);
+        points.P.x = points.B.x - (dx/len)*backT - nx * params.d;
+        points.P.y = points.B.y - (dy/len)*backT - ny * params.d;
+      } else { // A 端半圓
+        const arcT = (curr - (len * 2 + Math.PI * params.d)) / params.d + Math.PI/2;
+        points.P.x = points.A.x + params.d * Math.cos(angleA + arcT);
+        points.P.y = points.A.y + params.d * Math.sin(angleA + arcT);
+      }
+    } else if (currentCase === '5') { // 拋物線
+      const paramX = (Math.sin(t) * 160);
+      const F = points.F, L1 = points.L1, L2 = points.L2;
+      const lineAngle = Math.atan2(L2.y - L1.y, L2.x - L1.x);
+      // 旋轉座標系下計算拋物線
+      const dL = distToLine(F, L1, L2);
+      points.P.x = F.x + paramX * Math.cos(lineAngle);
+      const yVal = (paramX * paramX) / (2 * Math.max(10, dL));
+      points.P.y = F.y - yVal * Math.sin(lineAngle) - (dL/2);
+    }
+
+    animTraces.push({ x: points.P.x, y: points.P.y });
+    if (animTraces.length > 500) animTraces.shift();
+  }
+
+  // --- 觸控與事件處理 ---
+  function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: clientX - rect.left - canvas.clientWidth / 2,
+      y: clientY - rect.top - canvas.clientHeight / 2
+    };
+  }
+
+  function onPointerDown(e) {
+    const pos = getCanvasPos(e);
+    // 檢查點擊到了哪個控制點 (優先度: P -> 其他點)
+    const checkList = [points.P, points.A, points.B, points.F, points.L1, points.L2];
+    for (let pt of checkList) {
+      if (pt && dist(pos, pt) < HIT_RADIUS) {
+        draggedPoint = pt;
+        if (mode === 'anim') setMode('explore'); // 手動點擊自動切換為探索模式
+        break;
+      }
+    }
+  }
+
+  function onPointerMove(e) {
+    if (!draggedPoint) return;
+    const pos = getCanvasPos(e);
+    draggedPoint.x = pos.x;
+    draggedPoint.y = pos.y;
+  }
+
+  function onPointerUp() {
+    draggedPoint = null;
+  }
+
+  canvas.addEventListener('mousedown', onPointerDown);
+  canvas.addEventListener('mousemove', onPointerMove);
+  window.addEventListener('mouseup', onPointerUp);
+
+  canvas.addEventListener('touchstart', onPointerDown);
+  canvas.addEventListener('touchmove', onPointerMove);
+  window.addEventListener('touchend', onPointerUp);
+
   function resizeCanvas() {
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
-    clearTrail();
   }
   window.addEventListener('resize', resizeCanvas);
 
-  function clearTrail() { trailPoints = []; }
-
-  // 繪製與更新循環
-  function animate() {
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    const cx = width / 2;
-    const cy = height / 2;
-
-    ctx.clearRect(0, 0, width, height);
-
-    // 繪製背景微弱網格
-    ctx.strokeStyle = "rgba(255,255,255,0.03)";
-    ctx.lineWidth = 1;
-    for(let x = 0; x < width; x += 30) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,height); ctx.stroke(); }
-    for(let y = 0; y < height; y += 30) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke(); }
-
-    ctx.save();
-    ctx.translate(cx, cy);
-
-    const mode = modeSelect.value;
-
-    if (mode === 'spiro') {
-      drawSpirograph();
-    } else if (mode === 'apollonius') {
-      drawApollonius();
-    } else if (mode === 'parabola') {
-      drawParabola();
-    } else if (mode === 'linkage') {
-      drawLinkage();
-    }
-
-    ctx.restore();
-
-    if (isPlaying) t += 1;
-    requestAnimationFrame(animate);
-  }
-
-  // 1. 萬花雙軸軌跡
-  function drawSpirograph() {
-    infoText.innerHTML = `<b>萬花雙軸連桿</b>：雙軸旋轉疊加合成的連續幾何軌跡。<br>提示：調整轉速比可獲得不同的對稱幾何花紋。`;
-   
-    const x = state.r1 * Math.cos(t * 0.02 * state.w1) + state.r2 * Math.cos(t * 0.02 * state.w2);
-    const y = state.r1 * Math.sin(t * 0.02 * state.w1) + state.r2 * Math.sin(t * 0.02 * state.w2);
-
-    if (isPlaying) {
-      trailPoints.push({ x, y, hue: (t) % 360 });
-      if (trailPoints.length > maxTrail) trailPoints.shift();
-    }
-
-    // 繪製連桿手臂
-    const x1 = state.r1 * Math.cos(t * 0.02 * state.w1);
-    const y1 = state.r1 * Math.sin(t * 0.02 * state.w1);
-
-    ctx.strokeStyle = "rgba(255,255,255,0.2)";
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(x1, y1); ctx.lineTo(x, y); ctx.stroke();
-
-    drawTrail();
-  }
-
-  // 2. 阿波羅尼斯圓
-  function drawApollonius() {
-    infoText.innerHTML = `<b>阿波羅尼斯圓</b>：平面上到兩定點 A, B 距離之比為定值 $k$ ($PA/PB = k$) 的點 $P$ 之軌跡。<br>提示：滑動 $k$ 值可觀察圓心的偏移變化。`;
-
-    const k = state.kRatio;
-    const A = state.pA;
-    const B = state.pB;
-
-    // 畫定點 A, B
-    ctx.fillStyle = "#ff5252"; ctx.beginPath(); ctx.arc(A.x, A.y, 6, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#00b0ff"; ctx.beginPath(); ctx.arc(B.x, B.y, 6, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#fff"; ctx.fillText("A", A.x - 12, A.y - 8); ctx.fillText("B", B.x + 8, B.y - 8);
-
-    if (Math.abs(k - 1) < 0.01) {
-      // k=1 為垂直平分線
-      ctx.strokeStyle = "rgba(0, 230, 118, 0.8)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      const midX = (A.x + B.x)/2, midY = (A.y + B.y)/2;
-      const dx = B.x - A.x, dy = B.y - A.y;
-      ctx.moveTo(midX - dy * 2, midY + dx * 2);
-      ctx.lineTo(midX + dy * 2, midY - dx * 2);
-      ctx.stroke();
-    } else {
-      // 計算阿波羅尼斯圓心與半徑
-      const k2 = k * k;
-      const cx = (A.x - k2 * B.x) / (1 - k2);
-      const cy = (A.y - k2 * B.y) / (1 - k2);
-      const distAB = Math.hypot(A.x - B.x, A.y - B.y);
-      const r = (k * distAB) / Math.abs(1 - k2);
-
-      ctx.strokeStyle = "rgba(0, 230, 118, 0.8)";
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-
-      // 動態點 P 沿著軌跡圓旋轉
-      const angle = t * 0.02;
-      const px = cx + r * Math.cos(angle);
-      const py = cy + r * Math.sin(angle);
-
-      ctx.strokeStyle = "rgba(255,255,255,0.3)";
-      ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(px, py); ctx.lineTo(B.x, B.y); ctx.stroke();
-      ctx.fillStyle = "#ffeb3b"; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
-    }
-  }
-
-  // 3. 拋物線焦點與準線
-  function drawParabola() {
-    infoText.innerHTML = `<b>拋物線軌跡</b>：平面上到焦點 $F$ 的距離等於到準線 $L$ 的距離的所有點之軌跡。`;
-
-    const F = state.focus;
-    const L = state.directrixY;
-
-    // 畫焦點 F
-    ctx.fillStyle = "#ff7043"; ctx.beginPath(); ctx.arc(F.x, F.y, 6, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#fff"; ctx.fillText("焦點 F", F.x + 8, F.y + 4);
-
-    // 畫準線 L
-    ctx.strokeStyle = "#42a5f5"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-200, L); ctx.lineTo(200, L); ctx.stroke();
-    ctx.fillStyle = "#42a5f5"; ctx.fillText("準線 Directrix", -190, L - 8);
-
-    // 繪製拋物線軌跡
-    ctx.strokeStyle = "rgba(0, 230, 118, 0.8)"; ctx.lineWidth = 2;
-    ctx.beginPath();
-    let first = true;
-    for (let x = -180; x <= 180; x += 2) {
-      // (x - F.x)^2 + (y - F.y)^2 = (y - L)^2
-      // 解出 y = (x^2 - 2*x*Fx + Fx^2 + Fy^2 - L^2) / (2 * (Fy - L))
-      const denom = 2 * (F.y - L);
-      if (Math.abs(denom) < 0.1) continue;
-      const y = (Math.pow(x - F.x, 2) + F.y*F.y - L*L) / denom;
-      if (first) { ctx.moveTo(x, y); first = false; } else { ctx.lineTo(x, y); }
-    }
-    ctx.stroke();
-
-    // 動態掃描點 P
-    const scanX = 120 * Math.sin(t * 0.03) + F.x;
-    const denom = 2 * (F.y - L);
-    if (Math.abs(denom) >= 0.1) {
-      const scanY = (Math.pow(scanX - F.x, 2) + F.y*F.y - L*L) / denom;
-      ctx.strokeStyle = "rgba(255,255,255,0.4)";
-      ctx.beginPath(); ctx.moveTo(F.x, F.y); ctx.lineTo(scanX, scanY); ctx.lineTo(scanX, L); ctx.stroke();
-      ctx.fillStyle = "#ffeb3b"; ctx.beginPath(); ctx.arc(scanX, scanY, 5, 0, Math.PI*2); ctx.fill();
-    }
-  }
-
-  // 4. 機械臂雙關節連桿
-  function drawLinkage() {
-    infoText.innerHTML = `<b>雙關節機械臂</b>：兩段長度不同的手臂旋轉時，筆尖描繪出的綜合動態軌跡。`;
-
-    const a1 = t * state.speed1;
-    const a2 = t * state.speed2;
-
-    const x1 = state.l1 * Math.cos(a1);
-    const y1 = state.l1 * Math.sin(a1);
-    const x2 = x1 + state.l2 * Math.cos(a1 + a2);
-    const y2 = y1 + state.l2 * Math.sin(a1 + a2);
-
-    if (isPlaying) {
-      trailPoints.push({ x: x2, y: y2, hue: (t * 2) % 360 });
-      if (trailPoints.length > maxTrail) trailPoints.shift();
-    }
-
-    // 畫連桿
-    ctx.strokeStyle = "#90caf9"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x1,y1,4,0,Math.PI*2); ctx.fill();
-
-    drawTrail();
-  }
-
-  // 畫彩虹軌跡點
-  function drawTrail() {
-    for (let i = 1; i < trailPoints.length; i++) {
-      const p1 = trailPoints[i-1];
-      const p2 = trailPoints[i];
-      ctx.strokeStyle = `hsl(${p2.hue}, 100%, 65%)`;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
-    }
-  }
-
-  // 動態更新介面 Slider
-  function updateUI() {
-    clearTrail();
-    const mode = modeSelect.value;
-    let html = '';
-
-    if (mode === 'spiro') {
-      html = `
-        <div class="form-group"><label>主臂半徑 R1: <span id="valR1">${state.r1}</span></label><input type="range" min="20" max="120" value="${state.r1}" oninput="state.r1=+this.value; valR1.innerText=this.value; clearTrail();"></div>
-        <div class="form-group"><label>副臂半徑 R2: <span id="valR2">${state.r2}</span></label><input type="range" min="10" max="80" value="${state.r2}" oninput="state.r2=+this.value; valR2.innerText=this.value; clearTrail();"></div>
-        <div class="form-group"><label>轉速比 (W2/W1): <span id="valW2">${state.w2}</span></label><input type="range" min="-10" max="10" step="0.5" value="${state.w2}" oninput="state.w2=+this.value; valW2.innerText=this.value; clearTrail();"></div>
-      `;
-    } else if (mode === 'apollonius') {
-      html = `
-        <div class="form-group"><label>距離比例 k (PA/PB): <span id="valK">${state.kRatio}</span></label><input type="range" min="0.3" max="3" step="0.1" value="${state.kRatio}" oninput="state.kRatio=+this.value; valK.innerText=this.value;"></div>
-      `;
-    } else if (mode === 'parabola') {
-      html = `
-        <div class="form-group"><label>焦點 F 垂直位置: <span id="valFy">${state.focus.y}</span></label><input type="range" min="-120" max="0" value="${state.focus.y}" oninput="state.focus.y=+this.value; valFy.innerText=this.value;"></div>
-        <div class="form-group"><label>準線 Directrix 位置: <span id="valL">${state.directrixY}</span></label><input type="range" min="10" max="120" value="${state.directrixY}" oninput="state.directrixY=+this.value; valL.innerText=this.value;"></div>
-      `;
-    } else if (mode === 'linkage') {
-      html = `
-        <div class="form-group"><label>臂 1 長度: <span id="valL1">${state.l1}</span></label><input type="range" min="30" max="110" value="${state.l1}" oninput="state.l1=+this.value; valL1.innerText=this.value; clearTrail();"></div>
-        <div class="form-group"><label>臂 2 長度: <span id="valL2">${state.l2}</span></label><input type="range" min="20" max="90" value="${state.l2}" oninput="state.l2=+this.value; valL2.innerText=this.value; clearTrail();"></div>
-      `;
-    }
-    dynamicSliders.innerHTML = html;
-  }
-
-  // 事件綁定
-  modeSelect.addEventListener('change', updateUI);
-
-  playBtn.addEventListener('click', () => {
-    isPlaying = !isPlaying;
-    playBtn.innerText = isPlaying ? "⏸ 暫停" : "▶ 播放";
-  });
-
-  clearBtn.addEventListener('click', clearTrail);
-
-  randBtn.addEventListener('click', () => {
-    state.r1 = Math.floor(Math.random() * 80 + 30);
-    state.r2 = Math.floor(Math.random() * 50 + 10);
-    state.w2 = (Math.random() * 12 - 6).toFixed(1);
-    state.kRatio = (Math.random() * 2 + 0.4).toFixed(1);
-    state.l1 = Math.floor(Math.random() * 60 + 40);
-    state.l2 = Math.floor(Math.random() * 50 + 20);
-    updateUI();
-  });
-
   // 初始化
   resizeCanvas();
-  updateUI();
-  animate();
+  renderSliders();
+  resetPositions();
+  draw();
 </script>
 </body>
 </html>
-
