@@ -38,6 +38,44 @@ MathJax = {
     --card-bg: #ffffff;
     --border-color: #e2e8f0;
   }
+/* --------------------------------------------------
+   手機端公式溢出修正（支援手指左右滑動、防止版面走位）
+   -------------------------------------------------- */
+
+/* 1. 限制整體頁面與卡片寬度，防止橫向爆框 */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.container, .card, .formula-box, .example-box {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 2. 核心：讓 MathJax 公式在超過寬度時自動開啟「左右滑動」 */
+mjx-container {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch; /* 提升手機手指滑動順暢度 */
+  padding: 4px 0;
+}
+
+mjx-container[jax="SVG"][display="true"] {
+  display: block !important;
+  margin: 0.5em 0 !important;
+}
+
+/* 3. 滾動條美化（滑動時顯示細滾動條，不影響美觀） */
+mjx-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+mjx-container::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 4px;
+}
 
   @media (prefers-color-scheme: dark) {
     :root {
