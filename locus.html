@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>幾何軌跡探索角落</title>
+  <style>
+    :root {
+      --bg: #1a1a24;
+      --card-bg: #242433;
+      --primary: #7c4dff;
+      --accent: #00e676;
+      --text: #e0e0e0;
+      --subtext: #9e9e9e;
+    }
+    * { box-sizing: border-box; touch-action: manipulation; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .top-bar {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .back-btn {
+      text-decoration: none;
+      color: var(--primary);
+      font-weight: bold;
+      font-size: 0.95rem;
+      background: rgba(124, 77, 255, 0.15);
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+    .title { font-size: 1.05rem; font-weight: bold; color: #fff; }
+
+    .canvas-card {
+      width: 100%;
+      max-width: 500px;
+      background: #12121a;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      position: relative;
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    canvas {
+      width: 100%;
+      height: 340px;
+      display: block;
+      cursor: crosshair;
+    }
+    .info-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: #b0bec5;
+      pointer-events: none;
+      line-height: 1.4;
+    }
+
+    .controls-card {
+      width: 100%;
+      max-width: 500px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .form-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--subtext);
+      margin-bottom: 4px;
+    }
+    select, input[type="range"] {
+      width: 100%;
+      background: #181824;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    input[type="range"] {
+      padding: 0;
+      height: 6px;
+      accent-color: var(--primary);
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    button {
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: #fff;
+      transition: opacity 0.2s;
+    }
+    button:active { opacity: 0.8; }
+    .btn-play { background: var(--primary); }
+    .btn-clear { background: #ff5252; }
+    .btn-rand { background: #00b0ff; }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <a href="index.html" class="back-btn">← 回到工具箱</a>
+    <span class="title">✨ 幾何軌跡探索角落</span>
+  </div>
+
+  <div class="canvas-card">
+    <canvas id="locusCanvas"></canvas>
+    <div class="info-overlay" id="infoText">載入中...</div>
+  </div>
+
+  <div class="controls-card">
+    <div class="form-group">
+      <label for="modeSelect">軌跡模式：</label>
+      <select id="modeSelect">
+        <option value="spiro">🌀 萬花雙軸連桿軌跡 (Spirograph)</option>
+        <option value="apollonius">⭕ 阿波羅尼斯圓 (PA / PB = k)</option>
+        <option value="parabola">📐 拋物線焦點與準線 (Parabola)</option>
+        <option value="linkage">🤖 雙關節機械臂軌跡 (2-Bar Linkage)</option>
+      </select>
+    </div>
+
+    <div id="dynamicSliders"></div>
+
+    <div class="btn-grid">
+      <button class="btn-play" id="playBtn">⏸ 暫停</button>
+      <button class="btn-clear" id="clearBtn">🧹 清空軌跡</button>
+      <button class="btn-rand" id="randBtn">🎲 隨機變數</button>
+    </div>
+  </div>
+
+<script>
+  const canvas = document.getElementById('locusCanvas');
+  const ctx = canvas.getContext('2d');
+  const infoText = document.getElementById('infoText');
+  const modeSelect = document.getElementById('modeSelect');
+  const dynamicSliders = document.getElementById('dynamicSliders');
+  const playBtn = document.getElementById('playBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const randBtn = document.getElementById('randBtn');
+
+  let isPlaying = true;
+  let t = 0;
+  let trailPoints = [];
+  const maxTrail = 800;
+
+  // 拖曳狀態 (用於互動焦點)
+  let isDragging = false;
+  let dragTarget = null;
+
+  // 各模式參數
+  let state = {
+    // Spirograph
+    r1: 80, r2: 40, w1: 1, w2: 3,
+    // Apollonius
+    pA: { x: -60, y: 0 }, pB: { x: 60, y: 0 }, kRatio: 1.5,
+    // Parabola
+    focus: { x: 0, y: -50 }, directrixY: 50,
+    // Linkage
+    l1: 90, l2: 60, speed1: 0.02, speed2: 0.05
+  };
+
+  // 適應 High DPI 螢幕
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    clearTrail();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function clearTrail() { trailPoints = []; }
+
+  // 繪製與更新循環
+  function animate() {
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 繪製背景微弱網格
+    ctx.strokeStyle = "rgba(255,255,255,0.03)";
+    ctx.lineWidth = 1;
+    for(let x = 0; x < width; x += 30) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,height); ctx.stroke(); }
+    for(let y = 0; y < height; y += 30) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke(); }
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const mode = modeSelect.value;
+
+    if (mode === 'spiro') {
+      drawSpirograph();
+    } else if (mode === 'apollonius') {
+      drawApollonius();
+    } else if (mode === 'parabola') {
+      drawParabola();
+    } else if (mode === 'linkage') {
+      drawLinkage();
+    }
+
+    ctx.restore();
+
+    if (isPlaying) t += 1;
+    requestAnimationFrame(animate);
+  }
+
+  // 1. 萬花雙軸軌跡
+  function drawSpirograph() {
+    infoText.innerHTML = `<b>萬花雙軸連桿</b>：雙軸旋轉疊加合成的連續幾何軌跡。<br>提示：調整轉速比可獲得不同的對稱幾何花紋。`;
+   
+    const x = state.r1 * Math.cos(t * 0.02 * state.w1) + state.r2 * Math.cos(t * 0.02 * state.w2);
+    const y = state.r1 * Math.sin(t * 0.02 * state.w1) + state.r2 * Math.sin(t * 0.02 * state.w2);
+
+    if (isPlaying) {
+      trailPoints.push({ x, y, hue: (t) % 360 });
+      if (trailPoints.length > maxTrail) trailPoints.shift();
+    }
+
+    // 繪製連桿手臂
+    const x1 = state.r1 * Math.cos(t * 0.02 * state.w1);
+    const y1 = state.r1 * Math.sin(t * 0.02 * state.w1);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(x1, y1); ctx.lineTo(x, y); ctx.stroke();
+
+    drawTrail();
+  }
+
+  // 2. 阿波羅尼斯圓
+  function drawApollonius() {
+    infoText.innerHTML = `<b>阿波羅尼斯圓</b>：平面上到兩定點 A, B 距離之比為定值 $k$ ($PA/PB = k$) 的點 $P$ 之軌跡。<br>提示：滑動 $k$ 值可觀察圓心的偏移變化。`;
+
+    const k = state.kRatio;
+    const A = state.pA;
+    const B = state.pB;
+
+    // 畫定點 A, B
+    ctx.fillStyle = "#ff5252"; ctx.beginPath(); ctx.arc(A.x, A.y, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#00b0ff"; ctx.beginPath(); ctx.arc(B.x, B.y, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.fillText("A", A.x - 12, A.y - 8); ctx.fillText("B", B.x + 8, B.y - 8);
+
+    if (Math.abs(k - 1) < 0.01) {
+      // k=1 為垂直平分線
+      ctx.strokeStyle = "rgba(0, 230, 118, 0.8)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const midX = (A.x + B.x)/2, midY = (A.y + B.y)/2;
+      const dx = B.x - A.x, dy = B.y - A.y;
+      ctx.moveTo(midX - dy * 2, midY + dx * 2);
+      ctx.lineTo(midX + dy * 2, midY - dx * 2);
+      ctx.stroke();
+    } else {
+      // 計算阿波羅尼斯圓心與半徑
+      const k2 = k * k;
+      const cx = (A.x - k2 * B.x) / (1 - k2);
+      const cy = (A.y - k2 * B.y) / (1 - k2);
+      const distAB = Math.hypot(A.x - B.x, A.y - B.y);
+      const r = (k * distAB) / Math.abs(1 - k2);
+
+      ctx.strokeStyle = "rgba(0, 230, 118, 0.8)";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+
+      // 動態點 P 沿著軌跡圓旋轉
+      const angle = t * 0.02;
+      const px = cx + r * Math.cos(angle);
+      const py = cy + r * Math.sin(angle);
+
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(px, py); ctx.lineTo(B.x, B.y); ctx.stroke();
+      ctx.fillStyle = "#ffeb3b"; ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // 3. 拋物線焦點與準線
+  function drawParabola() {
+    infoText.innerHTML = `<b>拋物線軌跡</b>：平面上到焦點 $F$ 的距離等於到準線 $L$ 的距離的所有點之軌跡。`;
+
+    const F = state.focus;
+    const L = state.directrixY;
+
+    // 畫焦點 F
+    ctx.fillStyle = "#ff7043"; ctx.beginPath(); ctx.arc(F.x, F.y, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.fillText("焦點 F", F.x + 8, F.y + 4);
+
+    // 畫準線 L
+    ctx.strokeStyle = "#42a5f5"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-200, L); ctx.lineTo(200, L); ctx.stroke();
+    ctx.fillStyle = "#42a5f5"; ctx.fillText("準線 Directrix", -190, L - 8);
+
+    // 繪製拋物線軌跡
+    ctx.strokeStyle = "rgba(0, 230, 118, 0.8)"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    let first = true;
+    for (let x = -180; x <= 180; x += 2) {
+      // (x - F.x)^2 + (y - F.y)^2 = (y - L)^2
+      // 解出 y = (x^2 - 2*x*Fx + Fx^2 + Fy^2 - L^2) / (2 * (Fy - L))
+      const denom = 2 * (F.y - L);
+      if (Math.abs(denom) < 0.1) continue;
+      const y = (Math.pow(x - F.x, 2) + F.y*F.y - L*L) / denom;
+      if (first) { ctx.moveTo(x, y); first = false; } else { ctx.lineTo(x, y); }
+    }
+    ctx.stroke();
+
+    // 動態掃描點 P
+    const scanX = 120 * Math.sin(t * 0.03) + F.x;
+    const denom = 2 * (F.y - L);
+    if (Math.abs(denom) >= 0.1) {
+      const scanY = (Math.pow(scanX - F.x, 2) + F.y*F.y - L*L) / denom;
+      ctx.strokeStyle = "rgba(255,255,255,0.4)";
+      ctx.beginPath(); ctx.moveTo(F.x, F.y); ctx.lineTo(scanX, scanY); ctx.lineTo(scanX, L); ctx.stroke();
+      ctx.fillStyle = "#ffeb3b"; ctx.beginPath(); ctx.arc(scanX, scanY, 5, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
+  // 4. 機械臂雙關節連桿
+  function drawLinkage() {
+    infoText.innerHTML = `<b>雙關節機械臂</b>：兩段長度不同的手臂旋轉時，筆尖描繪出的綜合動態軌跡。`;
+
+    const a1 = t * state.speed1;
+    const a2 = t * state.speed2;
+
+    const x1 = state.l1 * Math.cos(a1);
+    const y1 = state.l1 * Math.sin(a1);
+    const x2 = x1 + state.l2 * Math.cos(a1 + a2);
+    const y2 = y1 + state.l2 * Math.sin(a1 + a2);
+
+    if (isPlaying) {
+      trailPoints.push({ x: x2, y: y2, hue: (t * 2) % 360 });
+      if (trailPoints.length > maxTrail) trailPoints.shift();
+    }
+
+    // 畫連桿
+    ctx.strokeStyle = "#90caf9"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x1,y1,4,0,Math.PI*2); ctx.fill();
+
+    drawTrail();
+  }
+
+  // 畫彩虹軌跡點
+  function drawTrail() {
+    for (let i = 1; i < trailPoints.length; i++) {
+      const p1 = trailPoints[i-1];
+      const p2 = trailPoints[i];
+      ctx.strokeStyle = `hsl(${p2.hue}, 100%, 65%)`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+    }
+  }
+
+  // 動態更新介面 Slider
+  function updateUI() {
+    clearTrail();
+    const mode = modeSelect.value;
+    let html = '';
+
+    if (mode === 'spiro') {
+      html = `
+        <div class="form-group"><label>主臂半徑 R1: <span id="valR1">${state.r1}</span></label><input type="range" min="20" max="120" value="${state.r1}" oninput="state.r1=+this.value; valR1.innerText=this.value; clearTrail();"></div>
+        <div class="form-group"><label>副臂半徑 R2: <span id="valR2">${state.r2}</span></label><input type="range" min="10" max="80" value="${state.r2}" oninput="state.r2=+this.value; valR2.innerText=this.value; clearTrail();"></div>
+        <div class="form-group"><label>轉速比 (W2/W1): <span id="valW2">${state.w2}</span></label><input type="range" min="-10" max="10" step="0.5" value="${state.w2}" oninput="state.w2=+this.value; valW2.innerText=this.value; clearTrail();"></div>
+      `;
+    } else if (mode === 'apollonius') {
+      html = `
+        <div class="form-group"><label>距離比例 k (PA/PB): <span id="valK">${state.kRatio}</span></label><input type="range" min="0.3" max="3" step="0.1" value="${state.kRatio}" oninput="state.kRatio=+this.value; valK.innerText=this.value;"></div>
+      `;
+    } else if (mode === 'parabola') {
+      html = `
+        <div class="form-group"><label>焦點 F 垂直位置: <span id="valFy">${state.focus.y}</span></label><input type="range" min="-120" max="0" value="${state.focus.y}" oninput="state.focus.y=+this.value; valFy.innerText=this.value;"></div>
+        <div class="form-group"><label>準線 Directrix 位置: <span id="valL">${state.directrixY}</span></label><input type="range" min="10" max="120" value="${state.directrixY}" oninput="state.directrixY=+this.value; valL.innerText=this.value;"></div>
+      `;
+    } else if (mode === 'linkage') {
+      html = `
+        <div class="form-group"><label>臂 1 長度: <span id="valL1">${state.l1}</span></label><input type="range" min="30" max="110" value="${state.l1}" oninput="state.l1=+this.value; valL1.innerText=this.value; clearTrail();"></div>
+        <div class="form-group"><label>臂 2 長度: <span id="valL2">${state.l2}</span></label><input type="range" min="20" max="90" value="${state.l2}" oninput="state.l2=+this.value; valL2.innerText=this.value; clearTrail();"></div>
+      `;
+    }
+    dynamicSliders.innerHTML = html;
+  }
+
+  // 事件綁定
+  modeSelect.addEventListener('change', updateUI);
+
+  playBtn.addEventListener('click', () => {
+    isPlaying = !isPlaying;
+    playBtn.innerText = isPlaying ? "⏸ 暫停" : "▶ 播放";
+  });
+
+  clearBtn.addEventListener('click', clearTrail);
+
+  randBtn.addEventListener('click', () => {
+    state.r1 = Math.floor(Math.random() * 80 + 30);
+    state.r2 = Math.floor(Math.random() * 50 + 10);
+    state.w2 = (Math.random() * 12 - 6).toFixed(1);
+    state.kRatio = (Math.random() * 2 + 0.4).toFixed(1);
+    state.l1 = Math.floor(Math.random() * 60 + 40);
+    state.l2 = Math.floor(Math.random() * 50 + 20);
+    updateUI();
+  });
+
+  // 初始化
+  resizeCanvas();
+  updateUI();
+  animate();
+</script>
+</body>
+</html>
+
