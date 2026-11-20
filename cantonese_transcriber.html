@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>廣東話錄音分段轉錄器（高穩定進階版）</title>
-  <!-- 引入 OpenCC-JS 確保輸出 100% 香港繁體字 -->
+  <title>廣東話錄音分段轉錄器（完整整合版）</title>
   <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js"></script>
   <style>
     :root {
@@ -70,11 +69,10 @@
       align-items: center;
     }
 
-    /* 上傳區 */
     .upload-zone {
       border: 2px dashed #cbd5e1;
       border-radius: 10px;
-      padding: 18px;
+      padding: 16px;
       text-align: center;
       cursor: pointer;
       background: #f8fafc;
@@ -84,7 +82,32 @@
     .upload-zone:hover { border-color: var(--primary); }
     input[type="file"] { display: none; }
 
-    /* 設定網格 */
+    .sample-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      color: var(--subtext);
+    }
+    .btn-sample {
+      background: #e2e8f0;
+      color: var(--text);
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-sample:hover { background: #cbd5e1; }
+
     .settings-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -117,7 +140,6 @@
       color: var(--text);
     }
 
-    /* 警告提示框 */
     .alert-box {
       display: none;
       background: #fef2f2;
@@ -131,7 +153,6 @@
       line-height: 1.45;
     }
 
-    /* 分段 Project 選擇區 */
     .summary-banner {
       background: var(--primary-light);
       border-left: 4px solid var(--primary);
@@ -176,7 +197,6 @@
     }
     .time-inputs input { width: 95px; text-align: center; font-family: monospace; }
 
-    /* 進度表區 */
     .progress-group { margin-bottom: 12px; }
     .progress-label {
       display: flex;
@@ -200,7 +220,6 @@
     }
     .progress-bar-fill.audio-fill { background: var(--accent); }
 
-    /* 按鈕列 */
     .btn-group {
       display: flex;
       gap: 10px;
@@ -230,7 +249,6 @@
       display: none;
     }
 
-    /* 輸出與恢復存檔列 */
     .restore-banner {
       display: none;
       background: #ecfdf5;
@@ -279,7 +297,6 @@
     <span class="title">🎙️ 廣東話錄音分段轉錄器</span>
   </div>
 
-  <!-- 步驟 1：上傳與效能/精度配置 -->
   <div class="card">
     <div class="step-title">
       <span>1. 選擇錄音檔與運算配置</span>
@@ -289,9 +306,14 @@
     <label class="upload-zone" for="audioFile">
       <div style="font-size:1.5rem; margin-bottom:4px;">📁</div>
       <div id="fileNameDisplay" style="font-weight:bold; color:#334155;">點擊選擇本地錄音檔案（MP3 / M4A / WAV）</div>
-      <div style="font-size:0.78rem; color:#64748b; margin-top:4px;">音檔絕不上傳雲端，保障隱私且無檔案數量限制</div>
+      <div style="font-size:0.78rem; color:#64748b; margin-top:4px;">音檔僅於本機讀取，不會上傳至雲端</div>
     </label>
     <input type="file" id="audioFile" accept="audio/*">
+
+    <div class="sample-bar">
+      <span>沒有現成測試音檔？可先下載一段 60 秒測試音檔（含靜音段）：</span>
+      <button type="button" class="btn-sample" onclick="downloadSampleWav()">🔊 下載測試錄音 (.WAV)</button>
+    </div>
 
     <div class="alert-box" id="memoryAlert"></div>
 
@@ -299,26 +321,27 @@
       <div class="setting-box">
         <label for="modelSelect">AI 模型精度與速度：</label>
         <select id="modelSelect">
-          <option value="Xenova/whisper-base">⚡ 極速模式 (whisper-base · 清晰錄音推薦)</option>
-          <option value="Xenova/whisper-small" selected>🎯 標準精度 (whisper-small · 複雜對話推薦)</option>
+          <option value="Xenova/whisper-base">⚡ 極速模式 (whisper-base · 較輕量)</option>
+          <option value="Xenova/whisper-small" selected>🎯 標準精度 (whisper-small · 較精準)</option>
         </select>
       </div>
       <div class="setting-box">
-        <label for="chunkMinutes">單份運算上限（防當機切分）：</label>
+        <label for="chunkMinutes">單份運算上限（防重載切分）：</label>
         <select id="chunkMinutes" onchange="recalculateProjects()">
-          <option value="15" selected>15 分鐘 / 份（約需 1.5~2 分鐘 · 最穩定）</option>
-          <option value="30">30 分鐘 / 份（約需 3~5 分鐘 · 標準）</option>
+          <option value="3">3 分鐘 / 份（極短分段 · 適合慢網速/手機測試）</option>
+          <option value="5" selected>5 分鐘 / 份（短分段 · 推薦目前測試）</option>
+          <option value="15">15 分鐘 / 份（標準分段 · 適合電腦）</option>
+          <option value="30">30 分鐘 / 份（較長分段 · 適合電腦）</option>
           <option value="45">45 分鐘 / 份（僅限高階桌面電腦）</option>
         </select>
       </div>
       <div class="setting-box" style="grid-column: 1 / -1;">
-        <label for="hotwordsInput">專有名詞 / 人名提示詞（用逗號分隔，提升辨識準確率）：</label>
-        <input type="text" id="hotwordsInput" placeholder="例如：香港, DSE, 陳大文, 會議紀錄（可留空）">
+        <label for="hotwordsInput">專有名詞 / 人名提示詞（用逗號分隔，可留空）：</label>
+        <input type="text" id="hotwordsInput" placeholder="例如：絲瓜, 廣東話, DSE, 陳大文">
       </div>
     </div>
   </div>
 
-  <!-- 步驟 2：分段 Project 選擇器 -->
   <div class="card" id="projectCard" style="display:none;">
     <div class="step-title">
       <span>2. 選擇要處理的分段 Project</span>
@@ -332,14 +355,13 @@
       <span>精確區間：</span>
       <input type="text" id="startTimeInput" value="00:00:00" placeholder="HH:MM:SS">
       <span>至</span>
-      <input type="text" id="endTimeInput" value="00:15:00" placeholder="HH:MM:SS">
+      <input type="text" id="endTimeInput" value="00:05:00" placeholder="HH:MM:SS">
       <label style="margin-left:auto; display:flex; align-items:center; gap:4px; cursor:pointer;">
-        <input type="checkbox" id="skipSilence" checked> 自動跳過靜音段（加速）
+        <input type="checkbox" id="skipSilence" checked> 自動跳過靜音段
       </label>
     </div>
   </div>
 
-  <!-- 步驟 3：即時雙層進度表 -->
   <div class="card">
     <div class="step-title">
       <span>3. 系統運算進度監控</span>
@@ -348,7 +370,7 @@
 
     <div class="progress-group">
       <div class="progress-label">
-        <span id="modelStatusLabel">AI 模型快取狀態（首次載入後永久存於本機）</span>
+        <span id="modelStatusLabel">AI 模型快取狀態（首次下載完成後會存於本機快取）</span>
         <span id="modelPercent">0%</span>
       </div>
       <div class="progress-bar-bg">
@@ -372,19 +394,18 @@
     </div>
   </div>
 
-  <!-- 步驟 4：逐字稿結果輸出 -->
   <div class="card">
     <div class="step-title">
-      <span>4. 廣東話逐字稿結果（自動香港繁體化 + 即時防遺失存檔）</span>
+      <span>4. 廣東話逐字稿結果（香港繁體 + 即時自動存檔）</span>
       <span id="activeProjLabel" style="font-size:0.8rem; color:#64748b;">就緒</span>
     </div>
 
     <div class="restore-banner" id="restoreBanner">
-      <span>💾 偵測到上次未下載的自動存檔紀錄</span>
+      <span>💾 偵測到上次的自動存檔紀錄</span>
       <button type="button" onclick="restoreBackup()" style="background:#10b981; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer; font-weight:bold;">恢復內容</button>
     </div>
 
-    <textarea id="outputArea" placeholder="轉錄出的廣東話文字會每 30 秒即時追加於此..."></textarea>
+    <textarea id="outputArea" placeholder="轉錄出的文字會即時顯示於此，並自動保存於瀏覽器..."></textarea>
     <div class="action-row">
       <button class="btn-sec" onclick="copyResult()">📋 複製全部文字</button>
       <button class="btn-sec" onclick="downloadTxt()">💾 下載 TXT 檔</button>
@@ -396,7 +417,6 @@
     import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
     env.allowLocalModels = false;
 
-    // 初始化 OpenCC 簡轉香港繁體轉換器
     let s2hkConverter = null;
     if (window.OpenCC) {
       s2hkConverter = window.OpenCC.Converter({ from: 'cn', to: 'hk' });
@@ -423,7 +443,66 @@
     const outputArea = document.getElementById('outputArea');
     const memoryAlert = document.getElementById('memoryAlert');
 
-    // 檢查本機是否有自動存檔備份
+    // 生成一段 60 秒測試用 WAV 檔（前 30 秒有訊號，後 30 秒靜音，方便測試分段與靜音略過）
+    window.downloadSampleWav = function() {
+      const sampleRate = 16000;
+      const duration = 60;
+      const numSamples = sampleRate * duration;
+      const pcm = new Float32Array(numSamples);
+
+      for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        if (t < 30) {
+          // 0~30 秒：每 3 秒一段低音量測試音調，中間有短暫停頓
+          const mod = t % 3;
+          if (mod < 1.8) {
+            pcm[i] = 0.04 * Math.sin(2 * Math.PI * 220 * t);
+          }
+        } else {
+          // 30~60 秒：靜音段
+          pcm[i] = 0;
+        }
+      }
+
+      const wavBuffer = encodeWav(pcm, sampleRate);
+      const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sample_test_60s.wav';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    function encodeWav(samples, sampleRate) {
+      const buffer = new ArrayBuffer(44 + samples.length * 2);
+      const view = new DataView(buffer);
+      const writeStr = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      };
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + samples.length * 2, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, samples.length * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+      }
+      return buffer;
+    }
+
     const savedBackup = localStorage.getItem('canto_transcribe_autosave');
     if (savedBackup && savedBackup.trim().length > 0) {
       document.getElementById('restoreBanner').style.display = 'flex';
@@ -434,7 +513,6 @@
       document.getElementById('restoreBanner').style.display = 'none';
     };
 
-    // 手動編輯時同步自動存檔
     outputArea.addEventListener('input', () => {
       localStorage.setItem('canto_transcribe_autosave', outputArea.value);
     });
@@ -455,10 +533,8 @@
       return parts[0] || 0;
     }
 
-    // 計算音訊片段的 RMS 音量能量（用於判斷是否純靜音）
     function calculateRMS(float32Array) {
       let sum = 0;
-      // 抽樣計算以極大化速度
       const step = 10;
       let count = 0;
       for (let i = 0; i < float32Array.length; i += step) {
@@ -468,15 +544,12 @@
       return Math.sqrt(sum / (count || 1));
     }
 
-    // 螢幕防休眠鎖定
     async function requestWakeLock() {
       try {
         if ('wakeLock' in navigator) {
           wakeLock = await navigator.wakeLock.request('screen');
         }
-      } catch (err) {
-        console.log('WakeLock 略過:', err.message);
-      }
+      } catch (err) {}
     }
 
     function releaseWakeLock() {
@@ -486,7 +559,6 @@
       }
     }
 
-    // 1. 載入檔案並檢查記憶體風險與總時長
     audioFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -494,14 +566,13 @@
       const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
       fileNameDisplay.innerText = `已載入：${file.name} (${sizeMB} MB)`;
 
-      // 檢測行動裝置與大檔案記憶體風險
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile && file.size > 25 * 1024 * 1024) {
+      if (isMobile && file.size > 20 * 1024 * 1024) {
         memoryAlert.style.display = 'block';
-        memoryAlert.innerHTML = `⚠️ <b>手機記憶體風險警告：</b>偵測到你正在使用手機且檔案達 ${sizeMB} MB。手機瀏覽器解碼大音檔極易因記憶體不足閃退，強烈建議改用<b>電腦瀏覽器</b>開啟此工具箱進行轉錄。`;
+        memoryAlert.innerHTML = `⚠️ <b>手機記憶體與重載提醒：</b>檔案達 ${sizeMB} MB，在手機瀏覽器解碼或切換 App 時較容易發生記憶體吃緊或頁面重載，建議先用較短段落測試，大量轉錄可改用電腦瀏覽器。`;
       } else if (file.size > 150 * 1024 * 1024) {
         memoryAlert.style.display = 'block';
-        memoryAlert.innerHTML = `⚠️ <b>大檔案提醒：</b>檔案達 ${sizeMB} MB，解碼時會佔用較多電腦記憶體，建議轉錄期間關閉其他無關網頁分頁，並維持單份 15 分鐘設定。`;
+        memoryAlert.innerHTML = `⚠️ <b>大檔案提醒：</b>檔案達 ${sizeMB} MB，建議維持較短的單份時長並關閉多餘分頁。`;
       } else {
         memoryAlert.style.display = 'none';
       }
@@ -519,7 +590,6 @@
       tempAudio.src = URL.createObjectURL(file);
     });
 
-    // 2. 計算分段 Projects
     window.recalculateProjects = function() {
       if (!totalDurationSec) return;
       const chunkMin = parseInt(document.getElementById('chunkMinutes').value, 10);
@@ -533,9 +603,9 @@
 
       let desc = `錄音總長 <b>${(totalDurationSec / 60).toFixed(1)} 分鐘</b>。`;
       if (remainderSec > 1 && fullParts > 0) {
-        desc += `以每份上限 ${chunkMin} 分鐘計算，系統已自動切分為 <b>${totalParts} 份</b>（${fullParts} 份完整 + 1 份尾段），請點選要轉錄的份數：`;
+        desc += `以每份上限 ${chunkMin} 分鐘計算，已切分為 <b>${totalParts} 份</b>（${fullParts} 份完整 + 1 份尾段）：`;
       } else {
-        desc += `以每份上限 ${chunkMin} 分鐘計算，系統已切分為 <b>${totalParts} 份</b>：`;
+        desc += `以每份上限 ${chunkMin} 分鐘計算，已切分為 <b>${totalParts} 份</b>：`;
       }
       splitSummary.innerHTML = desc;
 
@@ -577,11 +647,10 @@
 
     window.requestStop = function() {
       isStopRequested = true;
-      stopBtn.innerText = "⏳ 正在完成當前句後停止...";
+      stopBtn.innerText = "⏳ 正在停止...";
       stopBtn.disabled = true;
     };
 
-    // 3. 執行核心轉錄流程
     window.startTranscription = async function() {
       if (!currentFile) return;
 
@@ -608,16 +677,14 @@
 
       document.getElementById('activeProjLabel').innerText = `運行中：${projName}`;
 
-      // 若已有舊內容則換行追加，方便連續處理 1/4, 2/4
       if (outputArea.value.trim().length > 0) {
         outputArea.value += `\n\n====================================\n`;
       }
       outputArea.value += `【${projName} | ${formatTime(startSec)} - ${formatTime(endSec)}】\n`;
 
       try {
-        // Step A: 載入或切換模型
         if (!transcriber || loadedModelId !== selectedModel) {
-          document.getElementById('etaText').innerText = "正在載入 AI 模型...";
+          document.getElementById('etaText').innerText = "正在下載/載入 AI 模型...";
           document.getElementById('modelBar').style.width = '0%';
           transcriber = await pipeline('automatic-speech-recognition', selectedModel, {
             progress_callback: (info) => {
@@ -636,7 +703,6 @@
           loadedModelId = selectedModel;
         }
 
-        // Step B: 解碼音軌並即時釋放大型緩衝區以保護記憶體
         document.getElementById('etaText').innerText = "正在解碼音軌並裁切片段...";
         const arrayBuffer = await currentFile.arrayBuffer();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
@@ -647,11 +713,9 @@
         const endSample = Math.floor(endSec * sampleRate);
         const channelData = fullAudioBuffer.getChannelData(0).slice(startSample, endSample);
 
-        // 主動釋放完整音軌記憶體
         fullAudioBuffer = null;
         await audioCtx.close();
 
-        // Step C: 每 30 秒區塊推進
         const stepSec = 30;
         const stepSamples = stepSec * sampleRate;
         const totalSamples = channelData.length;
@@ -666,7 +730,7 @@
 
         for (let step = 0; step < totalSteps; step++) {
           if (isStopRequested) {
-            outputArea.value += `\n[使用者於 ${formatTime(startSec + step * stepSec)} 手動安全停止]\n`;
+            outputArea.value += `\n[於 ${formatTime(startSec + step * stepSec)} 手動停止]\n`;
             break;
           }
 
@@ -675,21 +739,19 @@
           const subAudio = channelData.slice(sliceStart, sliceEnd);
           const currentTimestamp = formatTime(startSec + step * stepSec);
 
-          // 靜音偵測過濾 (RMS < 0.003 視為無聲空白)
           const rms = calculateRMS(subAudio);
           if (skipSilence && rms < 0.003) {
             skippedCount++;
             outputArea.value += `[${currentTimestamp}] （靜音片段已自動略過）\n`;
           } else {
             const result = await transcriber(subAudio, {
-              language: 'cantonese',
+              language: 'chinese',
               task: 'transcribe',
               initial_prompt: promptText
             });
 
             if (result && result.text) {
               let cleanText = result.text.trim();
-              // 強制轉換為香港標準繁體字
               if (s2hkConverter) {
                 cleanText = s2hkConverter(cleanText);
               }
@@ -699,30 +761,28 @@
             }
           }
 
-          // 即時自動存檔與捲動
           outputArea.scrollTop = outputArea.scrollHeight;
           localStorage.setItem('canto_transcribe_autosave', outputArea.value);
 
-          // 更新雙層進度條與 ETA
           const doneRatio = (step + 1) / totalSteps;
           const pct = Math.round(doneRatio * 100);
           document.getElementById('audioBar').style.width = `${pct}%`;
           document.getElementById('audioPercent').innerText = `${pct}%`;
           document.getElementById('audioStatusLabel').innerText =
-            `進度：${step + 1} / ${totalSteps} 區塊` + (skippedCount > 0 ? `（已自動跳過 ${skippedCount} 個靜音段）` : '');
+            `進度：${step + 1} / ${totalSteps} 區塊` + (skippedCount > 0 ? `（略過 ${skippedCount} 個靜音段）` : '');
 
           const elapsedSec = (Date.now() - processStartTime) / 1000;
           const remainingSec = Math.max(0, Math.round((elapsedSec / doneRatio) - elapsedSec));
           document.getElementById('etaText').innerText = `運算中... 預計剩餘 ${formatTime(remainingSec)}`;
         }
 
-        document.getElementById('etaText').innerText = isStopRequested ? "⏹️ 已安全停止" : "✅ 轉錄完成！";
+        document.getElementById('etaText').innerText = isStopRequested ? "⏹️ 已停止" : "✅ 轉錄完成！";
         document.getElementById('activeProjLabel').innerText = isStopRequested ? `已中止：${projName}` : `已完成：${projName}`;
 
       } catch (err) {
         console.error(err);
         document.getElementById('etaText').innerText = "❌ 發生錯誤";
-        alert("轉錄過程中發生錯誤（可能是記憶體不足），已自動保存先前完成的所有文字：\n" + err.message);
+        alert("轉錄過程中發生錯誤，已自動保存先前完成的文字：\n" + err.message);
       } finally {
         releaseWakeLock();
         startBtn.disabled = false;
