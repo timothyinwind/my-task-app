@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>廣東話錄音分段轉錄器（完整整合版）</title>
+  <title>廣東話錄音分段轉錄器（中英夾雜測試版）</title>
   <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/full.js"></script>
   <style>
     :root {
@@ -82,31 +82,52 @@
     .upload-zone:hover { border-color: var(--primary); }
     input[type="file"] { display: none; }
 
-    .sample-bar {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
+    .sample-box {
       margin-top: 10px;
-      padding: 10px 12px;
+      padding: 12px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       font-size: 0.82rem;
       color: var(--subtext);
     }
-    .btn-sample {
-      background: #e2e8f0;
+    .sample-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .sample-script {
+      width: 100%;
+      min-height: 54px;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      font-family: inherit;
       color: var(--text);
+      background: #fff;
+      resize: vertical;
+    }
+    .btn-sample {
+      background: var(--primary);
+      color: #fff;
       border: none;
-      padding: 6px 10px;
+      padding: 6px 12px;
       border-radius: 6px;
       font-size: 0.8rem;
       font-weight: bold;
       cursor: pointer;
     }
-    .btn-sample:hover { background: #cbd5e1; }
+    .btn-sample:disabled { opacity: 0.55; cursor: not-allowed; }
+    .sample-status {
+      margin-top: 6px;
+      font-size: 0.78rem;
+      color: var(--primary);
+      min-height: 1.1em;
+    }
 
     .settings-grid {
       display: grid;
@@ -261,7 +282,7 @@
       justify-content: space-between;
       align-items: center;
     }
-    textarea {
+    textarea.output-area {
       width: 100%;
       height: 240px;
       border: 1px solid #cbd5e1;
@@ -305,14 +326,18 @@
 
     <label class="upload-zone" for="audioFile">
       <div style="font-size:1.5rem; margin-bottom:4px;">📁</div>
-      <div id="fileNameDisplay" style="font-weight:bold; color:#334155;">點擊選擇本地錄音檔案（MP3 / M4A / WAV）</div>
+      <div id="fileNameDisplay" style="font-weight:bold; color:#334155;">點擊選擇本地錄音檔案（MP3 / M4A / WAV / WEBM）</div>
       <div style="font-size:0.78rem; color:#64748b; margin-top:4px;">音檔僅於本機讀取，不會上傳至雲端</div>
     </label>
     <input type="file" id="audioFile" accept="audio/*">
 
-    <div class="sample-bar">
-      <span>沒有現成測試音檔？可先下載一段 60 秒測試音檔（含靜音段）：</span>
-      <button type="button" class="btn-sample" onclick="downloadSampleWav()">🔊 下載測試錄音 (.WAV)</button>
+    <div class="sample-box">
+      <div class="sample-header">
+        <span><strong>廣東話夾雜英文測試錄音產生器</strong>（可修改下方語句）：</span>
+        <button type="button" class="btn-sample" id="genSampleBtn" onclick="generateCantoneseEnSample()">🔊 朗讀並下載測試音檔</button>
+      </div>
+      <textarea id="sampleScriptInput" class="sample-script">喂，今日個 meeting 改咗喺下午三點 Zoom 做，記得帶份 report 過嚟，順便 check 下個 budget 同埋 email 嘅 update。</textarea>
+      <div class="sample-status" id="sampleStatus"></div>
     </div>
 
     <div class="alert-box" id="memoryAlert"></div>
@@ -336,8 +361,8 @@
         </select>
       </div>
       <div class="setting-box" style="grid-column: 1 / -1;">
-        <label for="hotwordsInput">專有名詞 / 人名提示詞（用逗號分隔，可留空）：</label>
-        <input type="text" id="hotwordsInput" placeholder="例如：絲瓜, 廣東話, DSE, 陳大文">
+        <label for="hotwordsInput">專有名詞 / 英文詞彙提示詞（用逗號分隔，可留空）：</label>
+        <input type="text" id="hotwordsInput" placeholder="例如：Zoom, report, budget, email, 絲瓜, DSE">
       </div>
     </div>
   </div>
@@ -405,7 +430,7 @@
       <button type="button" onclick="restoreBackup()" style="background:#10b981; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer; font-weight:bold;">恢復內容</button>
     </div>
 
-    <textarea id="outputArea" placeholder="轉錄出的文字會即時顯示於此，並自動保存於瀏覽器..."></textarea>
+    <textarea id="outputArea" class="output-area" placeholder="轉錄出的文字會即時顯示於此，並自動保存於瀏覽器..."></textarea>
     <div class="action-row">
       <button class="btn-sec" onclick="copyResult()">📋 複製全部文字</button>
       <button class="btn-sec" onclick="downloadTxt()">💾 下載 TXT 檔</button>
@@ -442,46 +467,110 @@
     const stopBtn = document.getElementById('stopBtn');
     const outputArea = document.getElementById('outputArea');
     const memoryAlert = document.getElementById('memoryAlert');
+    const genSampleBtn = document.getElementById('genSampleBtn');
+    const sampleStatus = document.getElementById('sampleStatus');
 
-    // 生成一段 60 秒測試用 WAV 檔（前 30 秒有訊號，後 30 秒靜音，方便測試分段與靜音略過）
-    window.downloadSampleWav = function() {
-      const sampleRate = 16000;
-      const duration = 60;
-      const numSamples = sampleRate * duration;
-      const pcm = new Float32Array(numSamples);
-
-      for (let i = 0; i < numSamples; i++) {
-        const t = i / sampleRate;
-        if (t < 30) {
-          // 0~30 秒：每 3 秒一段低音量測試音調，中間有短暫停頓
-          const mod = t % 3;
-          if (mod < 1.8) {
-            pcm[i] = 0.04 * Math.sin(2 * Math.PI * 220 * t);
-          }
-        } else {
-          // 30~60 秒：靜音段
-          pcm[i] = 0;
-        }
+    // 使用瀏覽器 SpeechSynthesis 朗讀「廣東話夾雜英文」並錄製下載
+    window.generateCantoneseEnSample = async function() {
+      const text = document.getElementById('sampleScriptInput').value.trim();
+      if (!text) {
+        alert("請先輸入測試語句！");
+        return;
       }
 
-      const wavBuffer = encodeWav(pcm, sampleRate);
-      const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+      if (!('speechSynthesis' in window) || typeof MediaRecorder === 'undefined') {
+        sampleStatus.innerText = "此瀏覽器不支援語音合成錄製，改為生成 30 秒聲波測試檔...";
+        downloadFallbackWav();
+        return;
+      }
+
+      genSampleBtn.disabled = true;
+      sampleStatus.innerText = "正在準備廣東話語音朗讀並錄製...";
+
+      try {
+        // 嘗試擷取麥克風或混合音訊流（部分裝置僅支援麥克風錄音）
+        let stream = null;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (micErr) {
+          // 若未授權或無麥克風，改用備援聲波 WAV
+          sampleStatus.innerText = "未取得麥克風錄音權限，已改為生成 30 秒聲波測試檔。";
+          downloadFallbackWav();
+          genSampleBtn.disabled = false;
+          return;
+        }
+
+        const chunks = [];
+        const recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        const stopPromise = new Promise((resolve) => {
+          recorder.onstop = () => {
+            stream.getTracks().forEach(track => track.stop());
+            const mimeType = recorder.mimeType || 'audio/webm';
+            const blob = new Blob(chunks, { type: mimeType });
+            const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+            triggerDownload(blob, `sample_cantonese_en.${ext}`);
+            resolve();
+          };
+        });
+
+        recorder.start();
+
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'zh-HK';
+        const voices = window.speechSynthesis.getVoices();
+        const hkVoice = voices.find(v => v.lang && v.lang.toLowerCase().includes('hk')) ||
+                        voices.find(v => v.lang && v.lang.toLowerCase().includes('zh'));
+        if (hkVoice) utter.voice = hkVoice;
+
+        utter.onend = () => {
+          setTimeout(() => recorder.stop(), 400);
+        };
+        utter.onerror = () => {
+          recorder.stop();
+        };
+
+        sampleStatus.innerText = "正在朗讀中（請保持音量開啟，完畢後自動下載）...";
+        window.speechSynthesis.speak(utter);
+
+        await stopPromise;
+        sampleStatus.innerText = "✅ 已生成並下載 sample_cantonese_en 測試音檔，可直接在上方選擇載入。";
+      } catch (err) {
+        console.error(err);
+        sampleStatus.innerText = "錄製發生狀況，已改為提供聲波測試檔。";
+        downloadFallbackWav();
+      } finally {
+        genSampleBtn.disabled = false;
+      }
+    };
+
+    function triggerDownload(blob, filename) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'sample_test_60s.wav';
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-    };
+    }
 
-    function encodeWav(samples, sampleRate) {
-      const buffer = new ArrayBuffer(44 + samples.length * 2);
+    function downloadFallbackWav() {
+      const sampleRate = 16000;
+      const duration = 30;
+      const pcm = new Float32Array(sampleRate * duration);
+      for (let i = 0; i < pcm.length; i++) {
+        const t = i / sampleRate;
+        if (t < 15 && (t % 3) < 1.5) {
+          pcm[i] = 0.04 * Math.sin(2 * Math.PI * 220 * t);
+        }
+      }
+      const buffer = new ArrayBuffer(44 + pcm.length * 2);
       const view = new DataView(buffer);
-      const writeStr = (offset, str) => {
-        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-      };
+      const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
       writeStr(0, 'RIFF');
-      view.setUint32(4, 36 + samples.length * 2, true);
+      view.setUint32(4, 36 + pcm.length * 2, true);
       writeStr(8, 'WAVE');
       writeStr(12, 'fmt ');
       view.setUint32(16, 16, true);
@@ -492,15 +581,14 @@
       view.setUint16(32, 2, true);
       view.setUint16(34, 16, true);
       writeStr(36, 'data');
-      view.setUint32(40, samples.length * 2, true);
-
+      view.setUint32(40, pcm.length * 2, true);
       let offset = 44;
-      for (let i = 0; i < samples.length; i++) {
-        const s = Math.max(-1, Math.min(1, samples[i]));
+      for (let i = 0; i < pcm.length; i++) {
+        const s = Math.max(-1, Math.min(1, pcm[i]));
         view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
         offset += 2;
       }
-      return buffer;
+      triggerDownload(new Blob([buffer], { type: 'audio/wav' }), 'sample_test_30s.wav');
     }
 
     const savedBackup = localStorage.getItem('canto_transcribe_autosave');
@@ -722,8 +810,8 @@
         const totalSteps = Math.ceil(totalSamples / stepSamples);
 
         const promptText = hotwords
-          ? `以下是香港廣東話對話逐字稿，請用香港繁體字記錄（關鍵詞：${hotwords}）：`
-          : `以下是香港廣東話對話逐字稿，請用香港繁體字記錄：`;
+          ? `以下是香港廣東話夾雜英文對話逐字稿，請用香港繁體字與原英文詞彙記錄（關鍵詞：${hotwords}）：`
+          : `以下是香港廣東話夾雜英文對話逐字稿，請用香港繁體字與原英文詞彙記錄：`;
 
         const processStartTime = Date.now();
         let skippedCount = 0;
