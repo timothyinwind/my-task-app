@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>本地 M4A 轉 16kHz WAV 轉換器</title>
+  <title>本地 M4A 轉 16kHz WAV 轉換器（含去雜音濾波）</title>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -83,6 +83,9 @@
       grid-template-columns: 1fr 1fr;
       gap: 10px;
       margin-top: 12px;
+    }
+    @media (max-width: 520px) {
+      .grid-2 { grid-template-columns: 1fr; }
     }
     .box {
       background: #f8fafc;
@@ -168,7 +171,7 @@
 
   <div class="top-bar">
     <a href="index.html" class="back-btn">← 回到工具箱</a>
-    <span class="title">🔄 本地 M4A 轉 WAV 工具</span>
+    <span class="title">🔄 本地 M4A 轉 WAV（含去雜音）</span>
   </div>
 
   <div class="card">
@@ -179,25 +182,26 @@
 
     <label class="upload-zone" for="srcFile">
       <div style="font-size:1.5rem; margin-bottom:4px;">🎵</div>
-      <div id="fileLabel" style="font-weight:bold; color:#334155;">點擊選擇 M4A / MP4 / AAC 檔案</div>
-      <div style="font-size:0.78rem; color:#64748b; margin-top:4px;">直接透過瀏覽器播放器引擎重採樣，解決 decodeAudioData 報錯</div>
+      <div id="fileLabel" style="font-weight:bold; color:#334155;">點擊選擇 M4A / MP4 / AAC / WAV 檔案</div>
+      <div style="font-size:0.78rem; color:#64748b; margin-top:4px;">支援輕量頻率去雜音，降低轉錄時重複與怪字機率</div>
     </label>
     <input type="file" id="srcFile" accept="audio/*,video/mp4">
 
     <div class="grid-2">
       <div class="box">
-        <label for="speedSelect">轉換倍速（電腦推薦 4x）：</label>
-        <select id="speedSelect">
-          <option value="1">1x 原速（最穩妥）</option>
-          <option value="2">2x 兩倍速</option>
-          <option value="4" selected>4x 四倍速（大幅縮短等待）</option>
+        <label for="denoiseLevel">去雜音濾波強度：</label>
+        <select id="denoiseLevel">
+          <option value="none">關閉（保留原始頻率）</option>
+          <option value="light" selected>輕量去底噪（100Hz–7.5kHz · 推薦）</option>
+          <option value="strong">較強去雜音（150Hz–6.5kHz · 適合吵雜環境）</option>
         </select>
       </div>
       <div class="box">
-        <label for="muteOutput">喇叭輸出控制：</label>
-        <select id="muteOutput">
-          <option value="mute" selected>🔇 轉換時靜音（不吵鬧）</option>
-          <option value="audible">🔊 同步播放監聽</option>
+        <label for="speedSelect">轉換倍速（電腦推薦 2x～4x）：</label>
+        <select id="speedSelect">
+          <option value="1">1x 原速（最穩妥）</option>
+          <option value="2" selected>2x 兩倍速（濾波更穩定）</option>
+          <option value="4">4x 四倍速（最快）</option>
         </select>
       </div>
       <div class="box">
@@ -206,12 +210,20 @@
       </div>
       <div class="box">
         <label for="endSecInput">結束時間 (HH:MM:SS)：</label>
-        <input type="text" id="endSecInput" value="00:30:00">
+        <input type="text" id="endSecInput" value="00:15:00">
       </div>
     </div>
 
+    <div class="box" style="margin-top:10px;">
+      <label for="muteOutput">喇叭輸出控制：</label>
+      <select id="muteOutput">
+        <option value="mute" selected>🔇 轉換時靜音（不吵鬧）</option>
+        <option value="audible">🔊 同步播放監聽</option>
+      </select>
+    </div>
+
     <div class="note">
-      💡 <b>使用秘訣：</b>如果你的錄音長達 2 小時，建議每次設定 <b>30 分鐘區間</b>（例如先轉 <code>00:00:00</code> 至 <code>00:30:00</code>），搭配 <b>4x 倍速</b> 只需約 <b>7.5 分鐘</b> 就能產出標準 16kHz 單聲道 <code>.wav</code> 檔，直接丟進「廣東話轉錄器」即可 100% 順利辨識！
+      💡 <b>使用建議：</b>「輕量去底噪」會過濾低頻冷氣/震動雜音與高頻嘶聲，保留廣東話人聲核心頻段；若搭配 <b>2x 倍速</b> 與 <b>10～15 分鐘區間</b>，濾波效果與處理速度會比較均衡。
     </div>
   </div>
 
@@ -236,7 +248,7 @@
   </div>
 
   <footer style="width: 100%; max-width: 600px; text-align: right; font-size: 0.72rem; color: #94a3b8; opacity: 0.65; margin-top: 6px; padding-right: 4px; user-select: none;">
-    最後更新時間: 26/11/20 11:15:00
+    最後更新時間: 26/11/20 14:22:00
   </footer>
 
   <audio id="hiddenPlayer" preload="auto" crossorigin="anonymous"></audio>
@@ -258,6 +270,8 @@
   let totalDuration = 0;
   let isConverting = false;
   let audioCtx = null;
+  let hpFilter = null;
+  let lpFilter = null;
   let recordedChunks = [];
   let targetEndSec = 0;
   let targetStartSec = 0;
@@ -279,6 +293,21 @@
     return parts[0] || 0;
   }
 
+  function applyFilterPreset(level) {
+    if (!hpFilter || !lpFilter || !audioCtx) return;
+    const now = audioCtx.currentTime;
+    if (level === 'none') {
+      hpFilter.frequency.setValueAtTime(1, now);
+      lpFilter.frequency.setValueAtTime(audioCtx.sampleRate / 2 - 100, now);
+    } else if (level === 'light') {
+      hpFilter.frequency.setValueAtTime(100, now);
+      lpFilter.frequency.setValueAtTime(7500, now);
+    } else if (level === 'strong') {
+      hpFilter.frequency.setValueAtTime(150, now);
+      lpFilter.frequency.setValueAtTime(6500, now);
+    }
+  }
+
   srcFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -289,7 +318,7 @@
     player.src = fileUrl;
     player.onloadedmetadata = () => {
       totalDuration = player.duration;
-      const defaultEnd = Math.min(totalDuration, 1800); // 預設先選前 30 分鐘
+      const defaultEnd = Math.min(totalDuration, 900); // 預設先選前 15 分鐘
       startSecInput.value = "00:00:00";
       endSecInput.value = formatTime(defaultEnd);
       posLabel.innerText = `目前位置：00:00:00 / ${formatTime(totalDuration)}`;
@@ -312,21 +341,28 @@
     recordedChunks = [];
     convertBtn.disabled = true;
     stopBtn.style.display = 'block';
-    statusText.innerText = "正在高速轉錄音軌中...";
+    statusText.innerText = "正在去雜音並重採樣中...";
 
     const speed = parseFloat(document.getElementById('speedSelect').value);
     const isMute = document.getElementById('muteOutput').value === 'mute';
+    const denoiseLevel = document.getElementById('denoiseLevel').value;
 
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioCtx.createMediaElementSource(player);
+
+      hpFilter = audioCtx.createBiquadFilter();
+      hpFilter.type = 'highpass';
+
+      lpFilter = audioCtx.createBiquadFilter();
+      lpFilter.type = 'lowpass';
+
       const processor = audioCtx.createScriptProcessor(4096, 1, 1);
       const gainNode = audioCtx.createGain();
 
       processor.onaudioprocess = (e) => {
         if (!isConverting) return;
         const input = e.inputBuffer.getChannelData(0);
-        // 降採樣至 16000 Hz（考量倍速補償）
         const effectiveRate = audioCtx.sampleRate / speed;
         const ratio = effectiveRate / 16000;
         const outLen = Math.floor(input.length / ratio);
@@ -337,7 +373,9 @@
         recordedChunks.push(downsampled);
       };
 
-      source.connect(processor);
+      source.connect(hpFilter);
+      hpFilter.connect(lpFilter);
+      lpFilter.connect(processor);
       processor.connect(gainNode);
       gainNode.connect(audioCtx.destination);
       window._gainNode = gainNode;
@@ -346,6 +384,7 @@
     if (audioCtx.state === 'suspended') {
       await audioCtx.resume();
     }
+    applyFilterPreset(denoiseLevel);
     window._gainNode.gain.value = isMute ? 0 : 1;
 
     player.currentTime = targetStartSec;
@@ -376,7 +415,6 @@
     convertBtn.disabled = false;
     statusText.innerText = "✅ 轉換完成，正在打包 WAV...";
 
-    // 合併所有 PCM 片段
     let totalSamples = 0;
     for (const chunk of recordedChunks) totalSamples += chunk.length;
     const merged = new Float32Array(totalSamples);
@@ -388,16 +426,21 @@
 
     const wavBuffer = encodeWav(merged, 16000);
     const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+    const levelTag = document.getElementById('denoiseLevel').value;
+    triggerDownload(blob, `clean_16k_${levelTag}_${formatTime(targetStartSec).replace(/:/g,'')}-${formatTime(targetEndSec).replace(/:/g,'')}.wav`);
+
+    statusText.innerText = "✅ 已下載去雜音 WAV 檔！";
+    recordedChunks = [];
+  };
+
+  function triggerDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `converted_16k_${formatTime(targetStartSec).replace(/:/g,'')}-${formatTime(targetEndSec).replace(/:/g,'')}.wav`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-
-    statusText.innerText = "✅ 已下載 WAV 檔！";
-    recordedChunks = [];
-  };
+  }
 
   function encodeWav(samples, sampleRate) {
     const buffer = new ArrayBuffer(44 + samples.length * 2);
