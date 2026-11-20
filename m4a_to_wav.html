@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>本地 M4A 轉 16kHz WAV 轉換器</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card-bg: #ffffff;
+      --primary: #2b4c7e;
+      --primary-light: #eef2f7;
+      --accent: #10b981;
+      --danger: #ef4444;
+      --text: #1e293b;
+      --subtext: #64748b;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .top-bar {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .back-btn {
+      text-decoration: none;
+      color: var(--primary);
+      font-weight: bold;
+      font-size: 0.9rem;
+      background: var(--primary-light);
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+    .title { font-size: 1.05rem; font-weight: bold; }
+
+    .card {
+      width: 100%;
+      max-width: 600px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .step-title {
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .upload-zone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      background: #f8fafc;
+      display: block;
+    }
+    .upload-zone:hover { border-color: var(--primary); }
+    input[type="file"] { display: none; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .box {
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      font-size: 0.84rem;
+    }
+    .box label {
+      display: block;
+      font-weight: bold;
+      color: #475569;
+      margin-bottom: 5px;
+    }
+    select, input[type="text"] {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.86rem;
+      background: #fff;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--subtext);
+      margin-bottom: 5px;
+    }
+    .progress-bg {
+      width: 100%;
+      height: 10px;
+      background: #e2e8f0;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.25s ease;
+    }
+
+    .btn-row { display: flex; gap: 10px; }
+    .btn-primary {
+      flex: 2;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 13px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-stop {
+      flex: 1;
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      padding: 13px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: none;
+    }
+    .note {
+      font-size: 0.8rem;
+      color: var(--subtext);
+      line-height: 1.5;
+      margin-top: 10px;
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <a href="index.html" class="back-btn">← 回到工具箱</a>
+    <span class="title">🔄 本地 M4A 轉 WAV 工具</span>
+  </div>
+
+  <div class="card">
+    <div class="step-title">
+      <span>1. 選擇本地 M4A / 音訊檔</span>
+      <span style="font-size:0.75rem; color:#10b981;">🔒 100% 離線本機轉換</span>
+    </div>
+
+    <label class="upload-zone" for="srcFile">
+      <div style="font-size:1.5rem; margin-bottom:4px;">🎵</div>
+      <div id="fileLabel" style="font-weight:bold; color:#334155;">點擊選擇 M4A / MP4 / AAC 檔案</div>
+      <div style="font-size:0.78rem; color:#64748b; margin-top:4px;">直接透過瀏覽器播放器引擎重採樣，解決 decodeAudioData 報錯</div>
+    </label>
+    <input type="file" id="srcFile" accept="audio/*,video/mp4">
+
+    <div class="grid-2">
+      <div class="box">
+        <label for="speedSelect">轉換倍速（電腦推薦 4x）：</label>
+        <select id="speedSelect">
+          <option value="1">1x 原速（最穩妥）</option>
+          <option value="2">2x 兩倍速</option>
+          <option value="4" selected>4x 四倍速（大幅縮短等待）</option>
+        </select>
+      </div>
+      <div class="box">
+        <label for="muteOutput">喇叭輸出控制：</label>
+        <select id="muteOutput">
+          <option value="mute" selected>🔇 轉換時靜音（不吵鬧）</option>
+          <option value="audible">🔊 同步播放監聽</option>
+        </select>
+      </div>
+      <div class="box">
+        <label for="startSecInput">開始時間 (HH:MM:SS)：</label>
+        <input type="text" id="startSecInput" value="00:00:00">
+      </div>
+      <div class="box">
+        <label for="endSecInput">結束時間 (HH:MM:SS)：</label>
+        <input type="text" id="endSecInput" value="00:30:00">
+      </div>
+    </div>
+
+    <div class="note">
+      💡 <b>使用秘訣：</b>如果你的錄音長達 2 小時，建議每次設定 <b>30 分鐘區間</b>（例如先轉 <code>00:00:00</code> 至 <code>00:30:00</code>），搭配 <b>4x 倍速</b> 只需約 <b>7.5 分鐘</b> 就能產出標準 16kHz 單聲道 <code>.wav</code> 檔，直接丟進「廣東話轉錄器」即可 100% 順利辨識！
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-title">
+      <span>2. 轉換進度與自動下載</span>
+      <span id="statusText" style="font-size:0.8rem; color:#2b4c7e;">待機中</span>
+    </div>
+
+    <div class="progress-label">
+      <span id="posLabel">目前位置：00:00:00 / 00:00:00</span>
+      <span id="pctLabel">0%</span>
+    </div>
+    <div class="progress-bg">
+      <div class="progress-fill" id="progBar"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="convertBtn" disabled onclick="startConvert()">請先選擇檔案</button>
+      <button class="btn-stop" id="stopBtn" onclick="finishAndSave()">⏹️ 立即結束並儲存 WAV</button>
+    </div>
+  </div>
+
+  <footer style="width: 100%; max-width: 600px; text-align: right; font-size: 0.72rem; color: #94a3b8; opacity: 0.65; margin-top: 6px; padding-right: 4px; user-select: none;">
+    最後更新時間: 26/11/20 11:15:00
+  </footer>
+
+  <audio id="hiddenPlayer" preload="auto" crossorigin="anonymous"></audio>
+
+<script>
+  const srcFileInput = document.getElementById('srcFile');
+  const fileLabel = document.getElementById('fileLabel');
+  const startSecInput = document.getElementById('startSecInput');
+  const endSecInput = document.getElementById('endSecInput');
+  const convertBtn = document.getElementById('convertBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const statusText = document.getElementById('statusText');
+  const posLabel = document.getElementById('posLabel');
+  const pctLabel = document.getElementById('pctLabel');
+  const progBar = document.getElementById('progBar');
+  const player = document.getElementById('hiddenPlayer');
+
+  let fileUrl = null;
+  let totalDuration = 0;
+  let isConverting = false;
+  let audioCtx = null;
+  let recordedChunks = [];
+  let targetEndSec = 0;
+  let targetStartSec = 0;
+  let timerId = null;
+
+  function formatTime(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+  }
+
+  function parseTime(str) {
+    const parts = str.trim().split(':').map(Number);
+    if (parts.some(isNaN)) return 0;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return parts[0] || 0;
+  }
+
+  srcFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (fileUrl) URL.revokeObjectURL(fileUrl);
+    fileUrl = URL.createObjectURL(file);
+    fileLabel.innerText = `已載入：${file.name}`;
+
+    player.src = fileUrl;
+    player.onloadedmetadata = () => {
+      totalDuration = player.duration;
+      const defaultEnd = Math.min(totalDuration, 1800); // 預設先選前 30 分鐘
+      startSecInput.value = "00:00:00";
+      endSecInput.value = formatTime(defaultEnd);
+      posLabel.innerText = `目前位置：00:00:00 / ${formatTime(totalDuration)}`;
+      convertBtn.disabled = false;
+      convertBtn.innerText = "▶ 開始本地轉換為 16kHz WAV";
+    };
+  });
+
+  window.startConvert = async function() {
+    if (!fileUrl || isConverting) return;
+
+    targetStartSec = parseTime(startSecInput.value);
+    targetEndSec = Math.min(parseTime(endSecInput.value), totalDuration);
+    if (targetEndSec <= targetStartSec) {
+      alert("結束時間必須大於開始時間！");
+      return;
+    }
+
+    isConverting = true;
+    recordedChunks = [];
+    convertBtn.disabled = true;
+    stopBtn.style.display = 'block';
+    statusText.innerText = "正在高速轉錄音軌中...";
+
+    const speed = parseFloat(document.getElementById('speedSelect').value);
+    const isMute = document.getElementById('muteOutput').value === 'mute';
+
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaElementSource(player);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const gainNode = audioCtx.createGain();
+
+      processor.onaudioprocess = (e) => {
+        if (!isConverting) return;
+        const input = e.inputBuffer.getChannelData(0);
+        // 降採樣至 16000 Hz（考量倍速補償）
+        const effectiveRate = audioCtx.sampleRate / speed;
+        const ratio = effectiveRate / 16000;
+        const outLen = Math.floor(input.length / ratio);
+        const downsampled = new Float32Array(outLen);
+        for (let i = 0; i < outLen; i++) {
+          downsampled[i] = input[Math.floor(i * ratio)];
+        }
+        recordedChunks.push(downsampled);
+      };
+
+      source.connect(processor);
+      processor.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      window._gainNode = gainNode;
+    }
+
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+    window._gainNode.gain.value = isMute ? 0 : 1;
+
+    player.currentTime = targetStartSec;
+    player.playbackRate = speed;
+
+    player.onended = () => finishAndSave();
+    await player.play();
+
+    timerId = setInterval(() => {
+      const cur = player.currentTime;
+      const pct = Math.min(100, Math.round(((cur - targetStartSec) / (targetEndSec - targetStartSec)) * 100));
+      progBar.style.width = `${pct}%`;
+      pctLabel.innerText = `${pct}%`;
+      posLabel.innerText = `目前位置：${formatTime(cur)} / ${formatTime(targetEndSec)}`;
+
+      if (cur >= targetEndSec) {
+        finishAndSave();
+      }
+    }, 300);
+  };
+
+  window.finishAndSave = function() {
+    if (!isConverting) return;
+    isConverting = false;
+    clearInterval(timerId);
+    player.pause();
+    stopBtn.style.display = 'none';
+    convertBtn.disabled = false;
+    statusText.innerText = "✅ 轉換完成，正在打包 WAV...";
+
+    // 合併所有 PCM 片段
+    let totalSamples = 0;
+    for (const chunk of recordedChunks) totalSamples += chunk.length;
+    const merged = new Float32Array(totalSamples);
+    let offset = 0;
+    for (const chunk of recordedChunks) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    const wavBuffer = encodeWav(merged, 16000);
+    const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `converted_16k_${formatTime(targetStartSec).replace(/:/g,'')}-${formatTime(targetEndSec).replace(/:/g,'')}.wav`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    statusText.innerText = "✅ 已下載 WAV 檔！";
+    recordedChunks = [];
+  };
+
+  function encodeWav(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+    return buffer;
+  }
+</script>
+</body>
+</html>
